@@ -4,10 +4,10 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 
 export const metadata: Metadata = {
-  title: "BCoffee",
-  description: "Coffee Shop Management",
+  title: "BCare Clinic",
+  description: "BCare Clinic",
   icons: {
-    icon: "/images/logo_bcoffee.svg",
+    icon: "/images/logo_bcare.svg",
   },
 };
 
