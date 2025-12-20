@@ -85,3 +85,12 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+.tox-promotion {
+    display: none !important;
+}
+
+/* Ẩn dòng chữ "Powered by TinyMCE" ở góc dưới cùng (nếu muốn) */
+.tox-statusbar__branding {
+    display: none !important;
+}

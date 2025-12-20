@@ -1,0 +1,573 @@
+import TextEditor from "@/components/editor/TextEditor";
+import { uploadResultImage } from "@/services/results_image.api";
+import {
+  postAiDetectFromFile,
+  postAiSaveAnnotation,
+} from "@/services/ai-core.api";
+import { Input, SquareButton } from "@/components/ui/square";
+import React, { useEffect, useState } from "react";
+import { postCreateServiceResults } from "@/services/results";
+import { cn } from "@/lib/utils";
+import { FileUp, X } from "lucide-react";
+
+// ---------- helper vẽ bbox ----------
+
+export type NormalizedDetection = {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  label: string;
+  confidence: number;
+  classId: number;
+};
+
+export function normalizeDetections(apiResponse: any): NormalizedDetection[] {
+  let detections: any[] = [];
+  // Trường hợp 1: response là mảng detections luôn
+  if (Array.isArray(apiResponse)) {
+    detections = apiResponse;
+  }
+  // Trường hợp 2: có .data.detections
+  else if (
+    apiResponse?.data?.detections &&
+    Array.isArray(apiResponse.data.detections)
+  ) {
+    detections = apiResponse.data.detections;
+  }
+  // Trường hợp 3: có .detections trực tiếp
+  else if (apiResponse?.detections && Array.isArray(apiResponse.detections)) {
+    detections = apiResponse.detections;
+  }
+
+  return detections
+    .map((d: any) => {
+      const b = d?.bbox;
+      if (!b) return null;
+
+      const x1 = Number(b.x1 ?? b[0]);
+      const y1 = Number(b.y1 ?? b[1]);
+      const x2 = Number(b.x2 ?? b[2]);
+      const y2 = Number(b.y2 ?? b[3]);
+
+      if (![x1, y1, x2, y2].every(Number.isFinite)) return null;
+
+      return {
+        x1,
+        y1,
+        x2,
+        y2,
+        label: d?.class?.name ?? d?.class_name ?? "Unknown",
+        confidence: Number(d?.confidence ?? d?.class?.score ?? 0),
+        classId: Number(d?.class?.id ?? -1),
+      } as NormalizedDetection;
+    })
+    .filter(Boolean) as NormalizedDetection[];
+}
+
+function BBoxPreview(props: { imageUrl: string; detections: any[] }) {
+  const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
+  const imgRef = React.useRef<HTMLImageElement | null>(null);
+
+
+  useEffect(() => {
+    const img = imgRef.current;
+    const canvas = canvasRef.current;
+    if (!img || !canvas) return;
+
+    const draw = () => {
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      const w = img.clientWidth;
+      const h = img.clientHeight;
+      canvas.width = w;
+      canvas.height = h;
+
+      ctx.clearRect(0, 0, w, h);
+
+      // scale theo kích thước hiển thị
+      const natW = img.naturalWidth || w;
+      const natH = img.naturalHeight || h;
+      const sx = w / natW;
+      const sy = h / natH;
+
+      const dets = normalizeDetections(props.detections);
+
+      ctx.font = "20px sans-serif";
+      ctx.strokeStyle = "#ff0000";
+      ctx.fillStyle = "#ff0000";
+      ctx.strokeStyle = "#ff0000";
+      ctx.lineWidth = 3;
+
+      dets.forEach((b) => {
+        const x = b.x1 * sx;
+        const y = b.y1 * sy;
+        const bw = (b.x2 - b.x1) * sx;
+        const bh = (b.y2 - b.y1) * sy;
+        // màu mặc định (không set style global)
+        ctx.strokeRect(x, y, bw, bh);
+
+        const text = `${b.label ?? "obj"}${
+          b.confidence != null ? ` ${(b.confidence * 100).toFixed(0)}%` : ""
+        }`;
+        const tw = ctx.measureText(text).width;
+        ctx.clearRect(x, Math.max(0, y - 16), tw + 8, 16);
+        ctx.fillText(text, x + 6, y - 6);
+      });
+    };
+
+    if (img.complete) draw();
+    img.onload = draw;
+
+    window.addEventListener("resize", draw);
+    return () => window.removeEventListener("resize", draw);
+  }, [props.imageUrl, props.detections]);
+
+  return (
+    <div className="relative w-full">
+      <img
+        ref={imgRef}
+        src={props.imageUrl}
+        alt="preview"
+        className="w-full rounded-[2px] border border-secondary-200"
+      />
+      <canvas
+        ref={canvasRef}
+        className="absolute left-0 top-0 pointer-events-none"
+      />
+    </div>
+  );
+}
+
+// ---------- modal ----------
+export default function CreateResultReportModal(props: {
+  open: boolean;
+  onClose: () => void;
+
+  serviceLabel: string;
+  itemId: string | null;
+
+  technicianId: string | null;
+
+  // save callback
+  onSaved: (resultId: string) => void;
+}) {
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  const [mainConclusion, setMainConclusion] = useState("");
+  const reportBodyRef = React.useRef<string>("");
+  useEffect(() => {
+    if (!props.open) return;
+    reportBodyRef.current = "<p>Mẫu báo cáo...</p>";
+  }, [props.open]);
+  const [isAbnormal, setIsAbnormal] = useState(false);
+
+  // images state: preview + ai dets + uploaded info
+  type ImgState = {
+    file: File;
+    previewUrl: string;
+    aiLoading?: boolean;
+    detections?: any[];
+    uploaded?: {
+      image_id: string;
+      original_image_url: string;
+      public_id?: string;
+      file_name?: string;
+      file_size?: string;
+      mime_type?: string;
+    };
+  };
+
+  const [images, setImages] = useState<ImgState[]>([]);
+  const [activeIdx, setActiveIdx] = useState<number>(-1); // ảnh đang xem bbox
+  const [zoomIdx, setZoomIdx] = useState<number | null>(null); // overlay phóng to
+
+  useEffect(() => {
+    if (!props.open) return;
+    setErr(null);
+    setSaving(false);
+    setMainConclusion("");
+    setIsAbnormal(false);
+    setImages([]);
+    setActiveIdx(-1);
+    setZoomIdx(null);
+  }, [props.open]);
+
+  // 1. Thêm useRef để lưu trữ danh sách URL cần cleanup
+  const previewUrlsRef = React.useRef<string[]>([]);
+
+  // 2. Mỗi khi images thay đổi, cập nhật ref (để dành cho lúc unmount thì xóa)
+  useEffect(() => {
+    previewUrlsRef.current = images.map((img) => img.previewUrl);
+  }, [images]);
+
+  // 3. Cleanup CHỈ KHI component unmount (tắt hẳn Modal)
+  useEffect(() => {
+    return () => {
+      previewUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+    };
+  }, []);
+  const pickFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    if (!picked.length) return;
+
+    setImages((prev) => [
+      ...prev,
+      ...picked.map((f) => ({
+        file: f,
+        previewUrl: URL.createObjectURL(f),
+        detections: undefined,
+      })),
+    ]);
+
+    if (activeIdx === -1) setActiveIdx(0);
+    e.target.value = "";
+  };
+
+  const removeImage = (idx: number) => {
+    // 1. Lấy ảnh cần xóa và revoke URL ngay lập tức
+    const imgToRemove = images[idx];
+    if (imgToRemove) {
+      URL.revokeObjectURL(imgToRemove.previewUrl);
+    }
+
+    // 2. Cập nhật state sau khi đã revoke
+    setImages((prev) => prev.filter((_, i) => i !== idx));
+
+    // 3. Xử lý index active
+    setActiveIdx((p) => {
+      if (p === idx) return -1;
+      if (p > idx) return p - 1;
+      return p;
+    });
+  };
+
+  const runAI = async (idx: number) => {
+    const img = images[idx];
+    if (!img) return;
+
+    setImages((prev) =>
+      prev.map((x, i) => (i === idx ? { ...x, aiLoading: true } : x))
+    );
+    try {
+      const res = await postAiDetectFromFile(img.file, "yolov12n", 0.25);
+      const dets = res?.detections ?? res?.data?.detections ?? [];
+      setImages((prev) =>
+        prev.map((x, i) =>
+          i === idx ? { ...x, detections: dets, aiLoading: false } : x
+        )
+      );
+      setActiveIdx(idx); // mở panel bbox
+    } catch (e: any) {
+      console.error(e);
+      setImages((prev) =>
+        prev.map((x, i) => (i === idx ? { ...x, aiLoading: false } : x))
+      );
+      setErr(e?.message ?? "AI detect thất bại.");
+    }
+  };
+
+  const save = async () => {
+    if (!props.itemId) return setErr("Thiếu request_item_id.");
+    if (!props.technicianId)
+      return setErr("Thiếu technician_id trong session.");
+
+    setSaving(true);
+    setErr(null);
+
+    try {
+      // 1) create service_results
+      const dto = {
+        request_item_id: props.itemId,
+        technician_id: props.technicianId,
+        main_conclusion: mainConclusion.trim() || undefined,
+        report_body_html: reportBodyRef.current || undefined,
+        is_abnormal: isAbnormal,
+      };
+
+      const created = await postCreateServiceResults(dto as any);
+      const resultId = created?.result_id ?? created?.id ?? String(created);
+
+      // 2) upload images -> có image_id + original_image_url
+      const uploaded = await Promise.all(
+        images.map(async (img) => {
+          const up = await uploadResultImage(
+            img.file,
+            props.technicianId!,
+            resultId
+          );
+          // up.data hoặc up trực tiếp tùy BE; bạn tự chỉnh field dưới nếu khác
+          const payload = up?.data ?? up;
+          return { img, payload };
+        })
+      );
+
+      // 3) save annotation to DB (không rerun AI)
+      // nếu ảnh chưa run AI thì detections = []
+      await Promise.all(
+        uploaded.map(async ({ img, payload }) => {
+          const imageId = payload?.image_id ?? payload?.data?.image_id;
+          if (!imageId) return;
+
+          const dets = img.detections ?? [];
+
+          await postAiSaveAnnotation({
+            image_id: imageId,
+            detections: dets,
+            model_name: "yolov12n",
+          });
+        })
+      );
+
+      props.onSaved(resultId);
+      props.onClose();
+    } catch (e: any) {
+      console.error(e);
+      setErr(
+        e?.response?.data?.message ?? e?.message ?? "Lưu báo cáo thất bại."
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!props.open) return null;
+
+  const showAiPanel = activeIdx >= 0 && !!images[activeIdx]?.detections?.length;
+
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4">
+      <div
+        className={cn(
+          "w-full bg-white border border-secondary-200 rounded-[2px] overflow-hidden flex flex-col",
+          showAiPanel ? "max-w-6xl" : "max-w-3xl"
+        )}
+        style={{ maxHeight: "calc(100vh - 4rem)" }}
+      >
+        {/* Header */}
+        <div className="h-12 bg-primary-800 text-white px-3 flex items-center justify-between">
+          <div className="text-xs font-bold uppercase tracking-wide">
+            Báo cáo kết quả • {props.serviceLabel}
+          </div>
+          <button
+            className="p-2 hover:bg-white/10 rounded-[2px]"
+            onClick={props.onClose}
+          >
+            <X size={16} />
+          </button>
+        </div>
+        {/* Body */}
+        <div className="overflow-y-auto">
+          <div
+            className={cn(
+              "p-3 grid gap-3",
+              showAiPanel ? "grid-cols-12" : "grid-cols-12"
+            )}
+          >
+            {err && (
+              <div
+                className={cn(
+                  "text-xs text-error-700 bg-error-50 border border-error-200 p-2 rounded-[2px]",
+                  showAiPanel ? "col-span-12" : "col-span-12"
+                )}
+              >
+                {err}
+              </div>
+            )}
+
+            {/* LEFT AI VISUALIZER */}
+            {showAiPanel && (
+              <div className="col-span-5">
+                <div className="text-[11px] uppercase font-bold text-secondary-500 mb-2">
+                  AI Visualize
+                </div>
+                <BBoxPreview
+                  imageUrl={images[activeIdx].previewUrl}
+                  detections={images[activeIdx].detections ?? []}
+                />
+                <div className="mt-2 text-[11px] text-secondary-500">
+                  Detections: {images[activeIdx].detections?.length ?? 0}
+                </div>
+              </div>
+            )}
+
+            {/* RIGHT FORM */}
+            <div
+              className={cn(
+                showAiPanel ? "col-span-7" : "col-span-12",
+                "overflow-y-auto"
+              )}
+            >
+              {/* UPLOAD AREA */}
+              <div className="border border-secondary-200 rounded-[2px] bg-bg-content p-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-bold uppercase text-secondary-600">
+                    Ảnh kết quả
+                  </div>
+                  <label className="inline-flex items-center gap-2 text-xs cursor-pointer">
+                    <FileUp size={14} />
+                    <span className="font-semibold">Chọn ảnh</span>
+                    <input
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      className="hidden"
+                      onChange={pickFiles}
+                    />
+                  </label>
+                </div>
+
+                {images.length === 0 ? (
+                  <div className="mt-2 text-xs text-secondary-500">
+                    Chưa chọn ảnh.
+                  </div>
+                ) : (
+                  <div className="mt-3 grid grid-cols-3 gap-2">
+                    {images.map((img, idx) => (
+                      <div
+                        key={`${img.file.name}-${idx}`}
+                        className={cn(
+                          "border border-secondary-200 bg-white rounded-[2px] overflow-hidden",
+                          idx === activeIdx && "ring-2 ring-primary-200"
+                        )}
+                      >
+                        <button
+                          className="w-full"
+                          onClick={() => {
+                            setActiveIdx(idx);
+                            setZoomIdx(idx);
+                          }}
+                          title="Click để phóng to"
+                        >
+                          <img
+                            src={img.previewUrl}
+                            alt="thumb"
+                            className="w-full h-28 object-cover"
+                          />
+                        </button>
+
+                        <div className="p-2 flex items-center gap-2">
+                          <SquareButton
+                            className="bg-primary-600 hover:bg-primary-700 border-primary-700 text-white"
+                            onClick={() => runAI(idx)}
+                            disabled={!!img.aiLoading}
+                            title="Chạy AI detect"
+                          >
+                            {img.aiLoading ? "AI..." : "AI"}
+                          </SquareButton>
+
+                          <SquareButton
+                            className="bg-secondary-100 hover:bg-secondary-200 border-secondary-200 text-secondary-900"
+                            onClick={() => removeImage(idx)}
+                            title="Xóa ảnh"
+                          >
+                            Xóa
+                          </SquareButton>
+
+                          <div className="ml-auto text-[11px] text-secondary-500">
+                            {img.detections
+                              ? `${img.detections.length} box`
+                              : "chưa AI"}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Kết luận */}
+              <div className="mt-3">
+                <div className="text-[11px] uppercase font-bold text-secondary-500">
+                  Kết luận chính
+                </div>
+                <Input
+                  value={mainConclusion}
+                  onChange={(e) => setMainConclusion(e.target.value)}
+                  placeholder="Kết luận chính..."
+                />
+              </div>
+
+              {/* Body (TinyMCE) */}
+              <div className="mt-3">
+                <div className="text-[11px] uppercase font-bold text-secondary-500">
+                  Mô tả
+                </div>
+                <TextEditor
+                  initialValue={reportBodyRef.current}
+                  onChange={(html) => {reportBodyRef.current=html}}
+                />
+              </div>
+
+              <div className="mt-3 flex items-center gap-3">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={isAbnormal}
+                    onChange={(e) => setIsAbnormal(e.target.checked)}
+                  />
+                  <span className="font-semibold text-secondary-700">
+                    Kết quả bất thường
+                  </span>
+                </label>
+              </div>
+
+              <div className="mt-4 flex justify-end gap-2">
+                <SquareButton
+                  className="bg-secondary-100 hover:bg-secondary-200 border-secondary-200 text-secondary-900"
+                  onClick={props.onClose}
+                  disabled={saving}
+                >
+                  Hủy
+                </SquareButton>
+
+                <SquareButton
+                  className="bg-primary-600 hover:bg-primary-700 border-primary-700 text-white"
+                  onClick={save}
+                  disabled={saving}
+                >
+                  {saving ? "Đang lưu..." : "Lưu báo cáo"}
+                </SquareButton>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ZOOM OVERLAY */}
+      {zoomIdx != null && images[zoomIdx] && (
+        <div
+          className="fixed inset-0 z-[90] bg-black/70 flex items-center justify-center p-6"
+          onClick={() => setZoomIdx(null)}
+        >
+          <div
+            className="max-w-5xl w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="bg-white border border-secondary-200 rounded-[2px] overflow-hidden">
+              <div className="p-2 bg-bg-content border-b border-secondary-200 flex justify-between items-center">
+                <div className="text-xs font-bold uppercase text-secondary-700">
+                  Preview ảnh
+                </div>
+                <button
+                  className="p-2 hover:bg-secondary-100 border border-secondary-200 rounded-[2px]"
+                  onClick={() => setZoomIdx(null)}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              <div className="p-3">
+                <BBoxPreview
+                  imageUrl={images[zoomIdx].previewUrl}
+                  detections={images[zoomIdx].detections ?? []}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

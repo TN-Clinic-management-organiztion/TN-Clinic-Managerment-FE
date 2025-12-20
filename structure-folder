@@ -1,0 +1,114 @@
+├── src/
+│   ├── app/
+│   │   ├── api/
+│   │   │   └── auth/
+│   │   │       └── [...nextauth]/
+│   │   │           └── route.ts        # API route của NextAuth (bắt buộc có)
+│   │   │
+│   │   ├── (public)/
+│   │   │   ├── login/
+│   │   │   │   └── page.tsx            # Trang login
+│   │   │   └── layout.tsx              # Layout public
+│   │   │
+│   │   ├── (protected)/
+│   │   │   ├── layout.tsx              # Shell + menu theo role
+│   │   │   ├── dashboard/page.tsx
+│   │   │   ├── queue/page.tsx
+│   │   │   ├── appointments/page.tsx
+│   │   │   ├── encounters/page.tsx
+│   │   │   ├── patients/page.tsx
+│   │   │   ├── staff/page.tsx
+│   │   │   ├── services/page.tsx
+│   │   │   ├── results/page.tsx
+│   │   │   ├── annotations/page.tsx
+│   │   │   ├── pharmacy/page.tsx
+│   │   │   ├── invoices/page.tsx
+│   │   │   ├── hr/page.tsx
+│   │   │   └── system/page.tsx
+│   │   │
+│   │   └── layout.tsx                  # Root layout
+│   │
+│   ├── lib/
+│   │   ├── auth/
+│   │   │   ├── auth.ts                 # NextAuth config + refresh logic
+│   │   │   ├── roles.ts                # map role -> route/menu
+│   │   │   └── types.d.ts              # mở rộng type Session/JWT
+│   │   │
+│   │   ├── http/
+│   │   │   ├── server.ts               # fetch wrapper (server) gắn token
+│   │   │   └── client.ts               # axios instance (client) gắn token
+│   │   │
+│   │   └── config/
+│   │       └── env.ts                  # env constants (optional)
+│   │
+│   ├── components/
+│   │   ├── layout/
+│   │   └── ui/
+│   │
+│   └── middleware.ts                   # bảo vệ route theo login/role
+└── package.json
+
+
+NextAuth giữ token → Middleware chặn route → HTTP gắn token để gọi backend → Khi token hết hạn NextAuth tự refresh
+
+========================================================================================================================
+A) src/app/api/auth/[...nextauth]/route.ts
+
+Đây là endpoint NextAuth (Next.js sẽ gọi nó khi signIn, signOut, getSession)
+
+Nó chỉ “export GET/POST” từ cấu hình ở lib/auth/auth.ts
+
+✅ Vai trò: bắt buộc để NextAuth hoạt động
+
+B) src/lib/auth/auth.ts
+
+Đây là bộ não của NextAuth:
+
+Credentials login: gọi backend /auth/login
+
+Lưu access_token, refresh_token vào JWT cookie
+
+Mỗi lần session/jwt được resolve:
+
+nếu access token gần hết hạn → gọi backend /auth/refresh
+
+cập nhật token mới
+
+✅ Vai trò: giữ token, tự refresh, cung cấp session cho UI/middleware
+=========================================================================================================
+C) src/middleware.ts
+
+Chạy trước khi vào route
+
+Việc nó làm:
+
+Nếu route là /login hoặc /api/auth/* → cho đi qua
+
+Nếu chưa login → đá về /login
+
+Nếu đã login:
+
+kiểm tra role → có được vào /system, /hr, … không
+
+không đúng → đá về /dashboard
+
+✅ Vai trò: cổng kiểm soát truy cập (Auth + Authorization)
+
+===========================================================================
+E) src/lib/http/server.ts
+
+Dùng khi gọi API ở Server Components
+
+Lấy session bằng auth() → lấy accessToken → gắn vào header
+
+✅ Vai trò: server gọi backend mà không cần tự cầm token thủ công
+
+===========================================================================
+F) src/lib/http/client.ts
+
+Dùng khi gọi API ở Client Components
+
+axios interceptor: getSession() → gắn accessToken
+
+✅ Vai trò: client gọi backend gọn, không lặp code
+

@@ -1,5 +1,5 @@
-import React from 'react';
-import LabelingWorkspace from '@/components/labelling/LabelingWorkspace';
+import React from "react";
+import LabelingWorkspace from "@/components/labelling/LabelingWorkspace";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -7,6 +7,7 @@ interface PageProps {
 
 export default async function WorkspacePage({ params }: PageProps) {
   const { id } = await params;
+  console.log("id: ", id);
 
   // SỬA: Set h-screen và overflow-hidden ở đây để đảm bảo không có thanh cuộn thừa của trình duyệt
   return (
