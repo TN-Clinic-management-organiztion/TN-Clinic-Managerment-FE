@@ -8,6 +8,7 @@ export const getListResultImages = async (
   search = ""
 ) => {
   const params: any = { page, limit };
+  console.log("statusFilter: ", statusFilter);
   if (statusFilter) {
     params.status = statusFilter;
   }

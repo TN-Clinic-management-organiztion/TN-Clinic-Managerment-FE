@@ -25,8 +25,8 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     if (error.response?.data?.statusCode === 401 && typeof window !== "undefined") {
       console.log("Token hết hạn, chuyển hướng đến đăng nhập");
-      await signOut({ redirect: false }); // Clear session without immediate redirect
-      window.location.href = "/login"; // Redirect to login
+      await signOut({ redirect: false }); 
+      window.location.href = "/login";
     }
     console.error("API Error:", error.response?.data || error.message);
     return Promise.reject(error);

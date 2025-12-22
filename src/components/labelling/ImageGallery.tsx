@@ -76,13 +76,21 @@ export default function ImageGallery() {
   const fetchImages = async () => {
     setLoading(true);
     try {
-      // Logic Filter gửi xuống Backend (Nếu BE hỗ trợ filter status)
-      // Hiện tại ta đang filter client tab, nên gửi status rỗng để lấy hết
-      // Gửi kèm debouncedSearch để BE lọc theo tên
+      // Map activeTab to status string cho API
+      let statusFilter = "";
+      if (activeTab === "TODO") {
+        statusFilter = "TODO"; // Multiple statuses
+      } else if (activeTab === "REVIEW") {
+        statusFilter = "REVIEW";
+      } else if (activeTab === "DONE") {
+        statusFilter = "DONE";
+      }
+      // activeTab === "ALL" thì để rỗng để lấy tất cả
+
       const response = await getListResultImages(
         page,
         LIMIT,
-        "",
+        statusFilter,
         debouncedSearch
       );
 
@@ -102,23 +110,14 @@ export default function ImageGallery() {
   };
 
   // 3. Logic Filter Client (Tab)
-  const filteredImages = images.filter((img) => {
-    if (activeTab === "ALL") return true; // Kho ảnh (Raw + All)
-    if (activeTab === "TODO")
-      return ["UNLABELED", "IN_PROGRESS", "REJECTED"].includes(
-        img.current_status
-      );
-    if (activeTab === "REVIEW") return img.current_status === "SUBMITTED";
-    if (activeTab === "DONE") return img.current_status === "APPROVED";
-    return true;
-  });
+  const filteredImages = images;
 
   // 4. Upload Logic
   const handleUploadClick = () => fileInputRef.current?.click();
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    if(!session?.user.id) return;
+    if (!session?.user.id) return;
     try {
       setIsUploading(true);
       await uploadResultImage(file, session?.user.id);
@@ -185,7 +184,7 @@ export default function ImageGallery() {
       <div className="flex justify-between items-center mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">
-            Kho dữ liệu hình ảnh (Raw Data)
+            Kho dữ liệu hình ảnh
           </h1>
           <p className="text-sm text-gray-500">
             Quản lý, tìm kiếm và gán nhãn dữ liệu huấn luyện AI
@@ -202,7 +201,7 @@ export default function ImageGallery() {
           <button
             onClick={handleUploadClick}
             disabled={isUploading}
-            className="flex items-center gap-2 bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700 transition shadow-sm text-sm font-medium"
+            className="flex items-center gap-2 bg-success-700 text-white px-4 py-2 rounded-lg hover:bg-success-900 transition shadow-sm text-sm font-medium"
           >
             {isUploading ? (
               <UploadCloud className="animate-bounce" size={16} />
@@ -219,17 +218,17 @@ export default function ImageGallery() {
         {/* Tabs */}
         <div className="flex bg-gray-100 p-1 rounded-lg">
           {[
-            { id: "ALL", label: "Tất cả (Kho ảnh)" },
+            { id: "ALL", label: "Tất cả" },
             { id: "TODO", label: "Cần làm (Todo)" },
-            { id: "REVIEW", label: "Chờ duyệt" },
-            { id: "DONE", label: "Hoàn thành" },
+            { id: "REVIEW", label: "Chờ duyệt (Review)" },
+            { id: "DONE", label: "Hoàn thành (Done)" },
           ].map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`px-4 py-2 text-xs font-semibold rounded-md transition-all ${
                 activeTab === tab.id
-                  ? "bg-white text-indigo-600 shadow-sm"
+                  ? "bg-white text-success-700 shadow-sm"
                   : "text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -249,7 +248,7 @@ export default function ImageGallery() {
             placeholder="Tìm theo tên ảnh, người upload..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-indigo-500 outline-none"
+            className="w-full pl-9 pr-4 py-2 border rounded-lg text-sm focus:ring-2 focus:ring-success-700 outline-none"
           />
         </div>
       </div>
@@ -302,7 +301,7 @@ export default function ImageGallery() {
               <div className="p-3 text-xs text-gray-500 flex flex-col gap-2 mt-auto bg-white">
                 {/* File Name */}
                 <div className="flex items-center gap-2" title={img.file_name}>
-                  <FileImage size={14} className="text-indigo-500 shrink-0" />
+                  <FileImage size={14} className="text-success-700 shrink-0" />
                   <span className="font-semibold text-gray-700 truncate">
                     {img.file_name || "No Name"}
                   </span>
@@ -337,7 +336,7 @@ export default function ImageGallery() {
                   img.current_status
                 ) &&
                   img.labeled_by_name && (
-                    <div className="mt-1 pt-1 border-t border-gray-100 flex justify-between text-indigo-600">
+                    <div className="mt-1 pt-1 border-t border-gray-100 flex justify-between text-success-700">
                       <span>Labeler:</span>
                       <span className="font-semibold truncate max-w-[90px]">
                         {img.labeled_by_name}
