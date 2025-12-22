@@ -1,0 +1,30 @@
+import { RoleCode, Roles } from "@/lib/auth/role";
+
+export function formatNumberWithCommas(number: string) {
+  return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+}
+
+export const formatTime = (iso: string) => {
+  try {
+    return new Date(iso).toLocaleTimeString("vi-VN", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return "--:--";
+  }
+};
+
+// Helper inline để tránh import issue
+export const getDefaultRoute = (role?: RoleCode) => {
+  console.log("getDefaultRoute called with role:", role);
+
+  // So sánh trực tiếp với string
+  if (role === "DOCTOR") return "/encounters";
+  if (role === "RECEPTIONIST") return "/reception";
+  if (role === "TECHNICIAN") return "/results";
+  if (role === "ADMIN") return "/reception";
+
+  console.log("No match found, returning /login");
+  return "/login";
+};

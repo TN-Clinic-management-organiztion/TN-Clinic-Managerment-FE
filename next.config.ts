@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  images: {
+    unoptimized: true, // Tắt optimization để test
+    domains: ["localhost"],
+  },
 };
 
 export default nextConfig;
