@@ -458,7 +458,7 @@ const LabelingWorkspace = ({ imageId }: Props) => {
       {/* LEFT TOOLBAR */}
       <div className="w-16 bg-white border-r flex flex-col items-center py-4 gap-4 z-20 shadow-sm shrink-0">
         <div
-          onClick={() => router.push("/labelling")}
+          onClick={() => router.push("/annotations")}
           className="p-3 mb-2 rounded-full bg-gray-100 text-gray-600 hover:bg-gray-200 cursor-pointer"
           title="Quay lại"
         >

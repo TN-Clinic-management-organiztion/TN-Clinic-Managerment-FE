@@ -10,12 +10,47 @@ module.exports = {
     extend: {
       keyframes: {
         fadeIn: {
-          "0%": { opacity: "0", transform: "translateY(6px)" },
-          "100%": { opacity: "1", transform: "translateY(0)" },
+          "0%": {
+            opacity: "0",
+            transform: "translateY(6px)",
+          },
+          "100%": {
+            opacity: "1",
+            transform: "translateY(0)",
+          },
+        },
+        float: {
+          "0%, 100%": { transform: "translateY(0px)" },
+          "50%": { transform: "translateY(-20px)" },
+        },
+        slideInLeft: {
+          from: { opacity: "0", transform: "translateX(-50px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        slideInRight: {
+          from: { opacity: "0", transform: "translateX(50px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
+        pulseGlow: {
+          "0%, 100%": { boxShadow: "0 0 20px rgba(168, 85, 247, 0.4)" },
+          "50%": { boxShadow: "0 0 40px rgba(168, 85, 247, 0.6)" },
+        },
+        sparkle: {
+          "0%, 100%": { opacity: "0", transform: "scale(0)" },
+          "50%": { opacity: "1", transform: "scale(1)" },
         },
       },
+      animation: {
+        float: "float 3s ease-in-out infinite",
+        slideInLeft: "slideInLeft 0.8s ease-out",
+        slideInRight: "slideInRight 0.8s ease-out",
+        pulseGlow: "pulseGlow 2s ease-in-out infinite",
+        sparkle: "sparkle 2s ease-in-out infinite	",
+      },
       borderRadius: {
-        large: "1rem",
+        lg: "var(--radius)",
+        md: "calc(var(--radius) - 2px)",
+        sm: "calc(var(--radius) - 4px)",
       },
       fontFamily: {
         montserrat: ["Montserrat", "sans-serif"],
@@ -195,13 +230,8 @@ module.exports = {
         xl: "1280px",
         "2xl": "1536px",
       },
-      borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
-      },
     },
   },
-  plugins: [],
-  darkMode: "class",
+  plugins: [require("tailwindcss-animate")],
+  darkMode: ["class", "class"],
 };

@@ -1,4 +1,4 @@
-import { BackendResponse } from "@/types/backend-reponse";
+import { BackendResponse } from "@/types/backend-response";
 import NextAuth, { type NextAuthConfig } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 
@@ -8,9 +8,9 @@ type BackendLoginResponse = {
 };
 
 type JwtPayloadFromBackend = {
-  sub: string; // user_id
+  sub: string;
   user_type?: "STAFF" | "PATIENT" | "ADMIN";
-  role?: string; // ADMIN/DOCTOR/...
+  role?: string;
   staff_id?: string;
   patient_id?: string;
   username?: string;
@@ -37,7 +37,6 @@ async function backendLogin(
   const res = await fetch(`${process.env.NEXT_PUBLIC_SERVER_URL}/auth/login`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    // LoginDto (Nestjs) { username, password }
     body: JSON.stringify({ username, password }),
     cache: "no-store",
   });

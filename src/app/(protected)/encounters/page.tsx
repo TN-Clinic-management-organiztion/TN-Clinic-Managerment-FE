@@ -25,7 +25,7 @@ import ServiceOrderModal from "./ServiceOrderModal.modal";
 import MedicationModal from "./MedicationModal.modal";
 import ResultsModal from "./ResultsModal.modal";
 
-// ====== encounters services (bạn đã có) ======
+// ====== encounters services ======
 import {
   EncounterStatus,
   getEncounterById,
@@ -101,7 +101,7 @@ const inConsultationBucket = (s: EncounterStatus) =>
 const waitingBucket = (s: EncounterStatus) =>
   [EncounterStatus.REGISTERED, EncounterStatus.AWAITING_PAYMENT].includes(s);
 
-// ===== ICD API (vì bạn chưa đưa service file icd, mình gọi axiosInstance trực tiếp) =====
+// ===== ICD API =====
 async function searchIcd10(query: string): Promise<RefIcd10Lite[]> {
   const res = await axiosInstance.get("ref/icd10", { params: { query } });
   return (res.data?.data ?? res.data) as RefIcd10Lite[];
@@ -343,16 +343,6 @@ export default function DoctorPage() {
               >
                 <span className="inline-flex items-center gap-2">
                   <FlaskConical size={16} /> Chỉ định CLS
-                </span>
-              </SquareButton>
-
-              <SquareButton
-                className="bg-success-600 hover:bg-success-700 border-success-700 text-white"
-                onClick={() => setOpenRx(true)}
-                disabled={!current}
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Pill size={16} /> Kê đơn
                 </span>
               </SquareButton>
 

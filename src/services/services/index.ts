@@ -60,14 +60,6 @@ export const getAssignedServicesByEncounter = async (encounterId: string) => {
   }
 };
 
-// ============================= Service-requested
-export enum PaymentStatus {
-  UNPAID = "UNPAID",
-  PARTIALLY_PAID = "PARTIALLY_PAID",
-  PAID = "PAID",
-  CANCELLED = "CANCELLED",
-}
-
 export interface ServiceRequestItemDto {
   service_id: number;
 }
@@ -81,7 +73,6 @@ export interface CreateServiceRequestDto {
 
 export interface UpdateServiceRequestsDto
   extends Partial<CreateServiceRequestDto> {
-  payment_status?: PaymentStatus;
 }
 
 export const postCreateServiceRequestsByDoctor = async (
@@ -92,24 +83,6 @@ export const postCreateServiceRequestsByDoctor = async (
     return response.data.data;
   } catch (error) {
     console.error("Create service requests by doctor  error: ", error);
-    throw error;
-  }
-};
-
-export const patchUpdateServiceRequestPaymentStatusPaid = async (
-  id: string
-) => {
-  try {
-    const dto: UpdateServiceRequestsDto = {
-      payment_status: PaymentStatus.PAID,
-    };
-    const response = await axiosInstance.patch(`service-orders/${id}`, dto);
-    return response.data.data;
-  } catch (error) {
-    console.error(
-      "Update payment status to PAID for service request error: ",
-      error
-    );
     throw error;
   }
 };

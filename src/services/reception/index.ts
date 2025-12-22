@@ -39,16 +39,37 @@ export const postQueueTicketWalkin = async (payload: CreateTicketPayload) => {
   }
 };
 
+export const getQueueTicketConsultationByEncounterIdAndTicketType = async (
+  encounterId: string
+) => {
+  try {
+    const response = await axiosInstance.get("/reception/queue/tickets", {
+      params: {
+        encounter_id: encounterId,
+        ticket_type: "CONSULTATION",
+      },
+    });
+    console.log("CONSULTATION encounter ticket_type:", response);
+    return response.data.data;
+  } catch (error) {
+    console.error(
+      "Get Queue ticket by encounterId and Ticket_type error: ",
+      error
+    );
+    throw error;
+  }
+};
+
 export const postQueueTicketConsultation = async (
   payload: CreateTicketPayload
 ) => {
   try {
     const res = await axiosInstance.post("/reception/queue/tickets", {
-      room_id: payload.room_id, // Phòng do thu ngân chỉ định theo yêu cầu của bệnh nhân
-      encounter_id: payload.encounter_id, // Sau khi tạo medical_encouter cho bệnh nhân
+      room_id: payload.room_id, 
+      encounter_id: payload.encounter_id, 
       ticket_type: "CONSULTATION",
       source: payload.source ?? "WALKIN",
-      service_ids: payload.service_ids, // Dịch vụ mà bệnh nhân yêu cầu
+      service_ids: payload.service_ids,
     });
     return res.data.data;
   } catch (error) {

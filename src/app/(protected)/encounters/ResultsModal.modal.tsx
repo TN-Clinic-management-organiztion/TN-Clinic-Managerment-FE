@@ -5,10 +5,12 @@ import { X, Eye, CheckCircle2, Clock, FileText } from "lucide-react";
 import { cn, SquareButton } from "@/components/ui/square";
 import ShowResultReportModal from "./ShowResultReportModal.modal";
 
-// Import các services giống KTV
 import { gettRequestItemsByEncouter } from "@/services/services";
 import { getFindResultByRequestItemId } from "@/services/results";
 import { getAllServices } from "@/services/services";
+import { ModalShell } from "@/components/modal/ModalShell";
+import { useSession } from "next-auth/react";
+import { getQueueTicketConsultationByEncounterIdAndTicketType } from "@/services/reception";
 
 // ===== Types =====
 type ServiceRequestItemDto = {
@@ -53,58 +55,30 @@ const fmt = (v?: string | null) => {
   return d.toLocaleString("vi-VN");
 };
 
-// ===== Modal Shell =====
-function ModalShell(props: {
-  open: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-  widthClass?: string;
-}) {
-  if (!props.open) return null;
-  return (
-    <div className="fixed inset-0 z-[80] bg-secondary-900/50 backdrop-blur-[1px] flex items-center justify-center p-4">
-      <div
-        className={cn(
-          "w-full bg-white border border-secondary-200 rounded-[2px] shadow-2xl overflow-hidden",
-          props.widthClass ?? "max-w-5xl"
-        )}
-      >
-        <div className="h-11 bg-primary-800 text-white flex items-center justify-between px-3">
-          <div className="font-bold text-sm uppercase tracking-wide">
-            {props.title}
-          </div>
-          <button
-            onClick={props.onClose}
-            className="p-1 hover:bg-primary-700 rounded-[2px]"
-          >
-            <X size={18} />
-          </button>
-        </div>
-        <div className="bg-bg-content p-3">{props.children}</div>
-      </div>
-    </div>
-  );
-}
-
 // ===== Main Component =====
 export default function ResultsModal(props: Props) {
+  const { data: session, status } = useSession();
+
   const [requestItems, setRequestItems] = useState<ServiceRequestItemDto[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Service results map: item_id -> ServiceResultDto (giống KTV)
-  const [resultsMap, setResultsMap] = useState<Map<string, ServiceResultDto>>(new Map());
+  const [resultsMap, setResultsMap] = useState<Map<string, ServiceResultDto>>(
+    new Map()
+  );
 
   // Service name map (giống KTV)
   const [serviceMap, setServiceMap] = useState<Map<number, string>>(new Map());
 
   // Show modal state (giống KTV)
   const [openShowModal, setOpenShowModal] = useState(false);
-  const [showModalResult, setShowModalResult] = useState<ServiceResultDto | null>(null);
-  const [showModalServiceLabel, setShowModalServiceLabel] = useState<string>("");
+  const [showModalResult, setShowModalResult] =
+    useState<ServiceResultDto | null>(null);
+  const [showModalServiceLabel, setShowModalServiceLabel] =
+    useState<string>("");
 
-  // Load service catalog (giống KTV)
+  // Load service catalog
   useEffect(() => {
     if (!props.open) return;
 
@@ -121,10 +95,10 @@ export default function ResultsModal(props: Props) {
     })();
   }, [props.open]);
 
-  // Load results for items (giống KTV)
+  // Load results for items
   const loadResultsForItems = async (items: ServiceRequestItemDto[]) => {
     const newMap = new Map<string, ServiceResultDto>();
-    
+
     await Promise.all(
       items.map(async (item) => {
         try {
@@ -143,7 +117,7 @@ export default function ResultsModal(props: Props) {
     setResultsMap(newMap);
   };
 
-  // Load request items + results (giống KTV)
+  // Load request items + results
   useEffect(() => {
     const loadData = async () => {
       if (!props.open || !props.encounterId) return;
@@ -156,10 +130,19 @@ export default function ResultsModal(props: Props) {
       try {
         // 1. Load request items
         const res = await gettRequestItemsByEncouter(props.encounterId);
+        const queueTicketEncounter =
+          await getQueueTicketConsultationByEncounterIdAndTicketType(
+            props.encounterId
+          );
+        console.log("data in modal: ", queueTicketEncounter);
+        const serviceIdConsultation = queueTicketEncounter[0]?.service_ids[0];
         const items = normalizeList<ServiceRequestItemDto>(res);
-        setRequestItems(items ?? []);
-        
-        // 2. Load results cho tất cả items
+        const items_filter = items.filter(
+          (i) => i.service_id != serviceIdConsultation
+        );
+        setRequestItems(items_filter ?? []);
+
+        // 2. Load results for all items
         if (items && items.length > 0) {
           await loadResultsForItems(items);
         }
@@ -182,8 +165,11 @@ export default function ResultsModal(props: Props) {
 
   const pendingCount = requestItems.length - completedCount;
 
-  // Open show modal (giống KTV)
-  const openShowReport = (item: ServiceRequestItemDto, result: ServiceResultDto) => {
+  // Open show modal
+  const openShowReport = (
+    item: ServiceRequestItemDto,
+    result: ServiceResultDto
+  ) => {
     const name =
       serviceMap.get(item.service_id) ?? `Dịch vụ #${item.service_id}`;
     setShowModalServiceLabel(`${item.service_id} • ${name}`);
@@ -234,7 +220,9 @@ export default function ResultsModal(props: Props) {
             ) : error ? (
               <div className="h-full flex items-center justify-center">
                 <div className="text-center text-error-700 bg-error-50 border border-error-200 rounded-[2px] p-6 max-w-md">
-                  <div className="text-sm font-semibold mb-1">Có lỗi xảy ra</div>
+                  <div className="text-sm font-semibold mb-1">
+                    Có lỗi xảy ra
+                  </div>
                   <div className="text-xs">{error}</div>
                 </div>
               </div>
@@ -278,29 +266,31 @@ export default function ResultsModal(props: Props) {
                         )}
                       >
                         <td className="p-2 text-secondary-500">{idx + 1}</td>
-                        
+
                         <td className="p-2">
                           <span className="font-mono font-semibold text-secondary-700">
                             {item.service_id}
                           </span>
                         </td>
-                        
+
                         <td className="p-2">
                           <div className="font-semibold text-secondary-900">
                             {name}
                           </div>
                         </td>
-                        
+
                         <td className="p-2">
                           {done && result ? (
                             <div className="text-secondary-700 line-clamp-2 text-[11px]">
                               {result.main_conclusion ?? "--"}
                             </div>
                           ) : (
-                            <span className="text-secondary-400 text-[11px]">--</span>
+                            <span className="text-secondary-400 text-[11px]">
+                              --
+                            </span>
                           )}
                         </td>
-                        
+
                         <td className="p-2">
                           <span
                             className={cn(
@@ -315,7 +305,9 @@ export default function ResultsModal(props: Props) {
                             {done ? (
                               <>
                                 <CheckCircle2 size={10} />
-                                {result?.is_abnormal ? "Bất thường" : "Bình thường"}
+                                {result?.is_abnormal
+                                  ? "Bất thường"
+                                  : "Bình thường"}
                               </>
                             ) : (
                               <>
@@ -325,11 +317,11 @@ export default function ResultsModal(props: Props) {
                             )}
                           </span>
                         </td>
-                        
+
                         <td className="p-2 text-secondary-500 text-[11px]">
                           {done && result ? fmt(result.result_time) : "--"}
                         </td>
-                        
+
                         <td className="p-2 text-center">
                           {done && result ? (
                             <SquareButton

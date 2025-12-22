@@ -44,23 +44,13 @@ import {
   postStartTicket,
 } from "@/services/reception";
 
-/**
- * =========================
- * LUỒNG TIẾP ĐÓN PHÒNG KHÁM
- * =========================
- * 1) KIOSK (demo) rút số -> tạo ticket REGISTRATION (WALKIN) cho quầy tiếp đón
- * 2) Lễ tân CALL -> gọi loa bệnh nhân
- * 3) Lễ tân START -> bắt đầu phục vụ ticket REGISTRATION (activeTicket)
- * 4) Tìm / tạo / cập nhật hồ sơ bệnh nhân
- * 5) Chọn dịch vụ + chọn phòng khám (bác sĩ)
- * 6) Lưu & Tạo phiếu khám:
- *    - Tạo/Cập nhật bệnh nhân
- *    - Tạo Encounter (phiếu/đợt khám)
- *    - Tạo ticket CONSULTATION (gắn encounter + dịch vụ + phòng)
- *    - Hoàn thành ticket REGISTRATION hiện tại
- */
+import { toast } from "react-toastify";
 
 export default function ReceptionPage() {
+  // Toastify
+  const notifySuccess = (content: string) => toast.success(content);
+  const notifyError = (content: string) => toast.error(content);
+
   // =========================
   // 1) SESSION
   // =========================
@@ -181,7 +171,7 @@ export default function ReceptionPage() {
         });
         setRooms(Array.isArray(data) ? data : []);
       } catch (error) {
-        alert("Không tải được danh sách phòng khám (CLINIC)");
+        notifyError("Không tải được danh sách phòng khám (CLINIC)");
         setRooms([]);
       } finally {
         setIsLoadingRooms(false);
@@ -279,7 +269,7 @@ export default function ReceptionPage() {
     const roomId = session?.user?.assigned_room_id;
     console.log("session: ", session);
     if (!roomId) {
-      alert("Không xác định được phòng tiếp đón (assigned_room_id).");
+      notifyError("Không xác định được phòng tiếp đón (assigned_room_id).");
       return;
     }
 
@@ -292,10 +282,10 @@ export default function ReceptionPage() {
     try {
       const result = await postQueueTicketWalkin(payload);
       setTickets((prev) => [...prev, result]);
-      alert(`Đã rút số: ${result.display_number ?? ""}`);
+      notifySuccess(`Đã rút số: ${result.display_number ?? ""}`);
     } catch (e) {
       console.error(e);
-      alert("Rút số thất bại");
+      notifyError("Rút số thất bại");
     }
   };
 
@@ -333,7 +323,7 @@ export default function ReceptionPage() {
       await refreshTickets();
     } catch (e) {
       console.error(e);
-      alert(`${action} thất bại`);
+      notifyError(`${action} thất bại`);
     }
   };
 
@@ -350,9 +340,9 @@ export default function ReceptionPage() {
         )
       );
       setActiveTicket(null);
-      alert("Đã bỏ qua vé");
+      notifySuccess("Đã bỏ qua vé");
     } catch (e) {
-      alert("Bỏ qua vé thất bại");
+      notifyError("Bỏ qua vé thất bại");
     }
   };
 
@@ -379,7 +369,7 @@ export default function ReceptionPage() {
 
       if (list.length === 0) {
         // CASE 0: Không thấy -> chuẩn bị tạo mới (prefill dữ liệu search)
-        alert("Không tìm thấy bệnh nhân. Vui lòng tạo mới.");
+        notifyError("Không tìm thấy bệnh nhân. Vui lòng tạo mới.");
         setPatientForm((prev) => ({
           ...prev,
           patient_id: "", // đảm bảo là tạo mới
@@ -387,11 +377,6 @@ export default function ReceptionPage() {
           phone: isPhone ? q : prev.phone,
           cccd: isCccd ? q : prev.cccd,
         }));
-      } else if (list.length === 1) {
-        // CASE 1: Có 1 hồ sơ -> autofill
-        const found = list[0];
-        setPatientForm((prev) => ({ ...prev, ...found }));
-        alert(`Đã tìm thấy hồ sơ: ${found.full_name}`);
       } else {
         // CASE >1: Trùng tên -> show modal cho chọn đúng người
         setSearchResults(list);
@@ -399,7 +384,7 @@ export default function ReceptionPage() {
       }
     } catch (error) {
       console.error(error);
-      alert("Có lỗi xảy ra khi tìm kiếm");
+      notifyError("Có lỗi xảy ra khi tìm kiếm");
     } finally {
       setIsSearching(false);
     }
@@ -424,11 +409,11 @@ export default function ReceptionPage() {
       !patientForm.dob ||
       !selectedTargetRoom
     ) {
-      alert("Vui lòng nhập đầy đủ các trường bắt buộc (*)");
+      notifyError("Vui lòng nhập đầy đủ các trường bắt buộc (*)");
       return;
     }
     if (!selectedServiceId) {
-      alert("Vui lòng chọn dịch vụ khám");
+      notifyError("Vui lòng chọn dịch vụ khám");
       return;
     }
 
@@ -473,9 +458,8 @@ export default function ReceptionPage() {
       if (!encounterId)
         throw new Error("Không tạo được phiếu khám (Encounter).");
 
-      // ✅ B3) TẠO SERVICE REQUEST CHO DỊCH VỤ KHÁM BAN ĐẦU
+      // 3. CREAT SERVICE REQUEST FOR CONSULTATION
       // Gọi API tạo service_request với service_id của dịch vụ khám
-      console.log("selectedServiceId: ", selectedServiceId);
       await fetch(
         `${process.env.NEXT_PUBLIC_SERVER_URL}/service-orders/create-initial`,
         {
@@ -484,7 +468,7 @@ export default function ReceptionPage() {
           body: JSON.stringify({
             encounterId: encounterId,
             serviceId: selectedServiceId,
-            requestedBy: session?.user?.id, // staff_id của lễ tân
+            requestedBy: session?.user?.id,
           }),
         }
       );
@@ -512,15 +496,15 @@ export default function ReceptionPage() {
 
       setActiveTicket(null);
       resetReceptionForm();
-
-      alert(
-        `✅ Đã tạo phiếu khám thành công!\n📋 Mã phiếu khám: ${encounterId}\n\nBệnh nhân có thể đến quầy thu ngân để thanh toán.`
+      notifySuccess(
+        `Đã tạo phiếu khám thành công!\n📋 Mã phiếu khám: ${encounterId}\n\n`
       );
     } catch (error: any) {
       console.error("Lỗi quy trình tiếp đón:", error);
       const errorMessage =
         error?.response?.data?.message || error?.message || "Có lỗi xảy ra.";
-      alert(`Thất bại: ${errorMessage}`);
+
+      notifyError(`Thất bại: ${errorMessage}`);
     }
   };
 
@@ -729,7 +713,6 @@ export default function ReceptionPage() {
          ========================= */}
       <header className="h-12 bg-primary-800 text-primary-0 flex items-center justify-between px-4 shadow-md shrink-0">
         <div className="font-semibold text-lg flex items-center gap-2">
-          <Activity size={20} className="text-primary-200" />
           <span>TIẾP ĐÓN BỆNH NHÂN</span>
         </div>
         <button
@@ -938,8 +921,8 @@ export default function ReceptionPage() {
                   </div>
 
                   <div>
-                    <label className="block text-secondary-500 text-xs font-semibold mb-1.5 text-error-600">
-                      TIỀN SỬ DỊ ỨNG (ALLERGY)
+                    <label className="block text-secondary-500 text-xs font-semibold mb-1.5">
+                      TIỀN SỬ DỊ ỨNG
                     </label>
                     <textarea
                       className="w-full border border-error-200 bg-error-100 rounded-md px-3 py-2 focus:border-error-500 h-16 resize-none text-xs text-error-900"
