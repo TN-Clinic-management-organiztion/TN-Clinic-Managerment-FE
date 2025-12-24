@@ -5,16 +5,47 @@ export const uploadResultImage = async (
   uploadedBy: string,
   resultId?: string
 ) => {
+  const { width, height } = await getImageSize(file);
+
   const formData = new FormData();
   formData.append("file", file);
   formData.append("uploaded_by", uploadedBy);
+  formData.append("width", String(width));
+  formData.append("height", String(height));
 
-  if (resultId) {
-    formData.append("result_id", resultId);
-  }
+  if (resultId) formData.append("result_id", resultId);
 
   const res = await axiosInstance.post(`results/images/upload`, formData, {
     headers: { "Content-Type": "multipart/form-data" },
   });
+
   return res.data;
+};
+
+export const getImageSize = (
+  file: File
+): Promise<{ width: number; height: number }> => {
+  return new Promise((resolve, reject) => {
+    // Chỉ nên dùng cho ảnh
+    if (!file.type.startsWith("image/")) {
+      reject(new Error("File không phải ảnh"));
+      return;
+    }
+
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+
+    img.onload = () => {
+      const size = { width: img.naturalWidth, height: img.naturalHeight };
+      URL.revokeObjectURL(url); // tránh leak bộ nhớ
+      resolve(size);
+    };
+
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Không đọc được ảnh"));
+    };
+
+    img.src = url;
+  });
 };
