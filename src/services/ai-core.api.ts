@@ -130,3 +130,36 @@ export const postAiSaveAnnotation = async (payload: {
   const res = await axiosInstance.post("ai-core/annotations", payload);
   return res.data;
 };
+
+export const postDownloadAnnotation = async (dto: any) => {
+  try {
+    const res = await axiosInstance.post(
+      "/ai-core/export/yolo.zip",
+      dto, // ✅ body DTO export (project_id, v.v.)
+      {
+        responseType: "blob", // ✅ config (đúng chỗ)
+      }
+    );
+
+    // filename từ header
+    const disposition = res.headers["content-disposition"] || "";
+    const match = disposition.match(/filename="(.+?)"/);
+    const filename = match?.[1] ?? "yolo_export.zip";
+
+    // tạo file download
+    const blob = new Blob([res.data], { type: "application/zip" });
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+
+    window.URL.revokeObjectURL(url);
+  } catch (error) {
+    console.error("Tải annotation thất bại: ", error);
+    throw error;
+  }
+};
