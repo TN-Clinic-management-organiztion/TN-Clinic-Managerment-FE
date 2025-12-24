@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { getListResultImages } from "@/services/ai-core.api";
+import { getListResultImages, postDownloadAnnotation } from "@/services/ai-core.api";
 import { uploadResultImage } from "@/services/results_image.api"; // Service upload cũ
 import {
   Calendar,
@@ -190,7 +190,31 @@ export default function ImageGallery() {
             Quản lý, tìm kiếm và gán nhãn dữ liệu huấn luyện AI
           </p>
         </div>
-        <div>
+        <div className="flex gap-2">
+          <button
+            onClick={async () => {
+              try {
+                // TODO: thay dto theo backend bạn cần
+                const dto = {
+                  // project_id: "...",
+                  // image_ids: [...],
+                  // ...
+                };
+                await postDownloadAnnotation(dto);
+              } catch (e) {
+                alert("Tải annotations thất bại.");
+              }
+            }}
+            disabled={isUploading}
+            className="flex items-center gap-2 border-[3px] border-secondary-400 text-secondary-400 px-4 py-2 rounded-lg hover:bg-secondary-300 hover:text-secondary-100 hover:border-secondary-300 transition"
+          >
+            {isUploading ? (
+              <UploadCloud className="animate-bounce" size={16} />
+            ) : (
+              <Plus size={16} />
+            )}
+            Tải Annotations
+          </button>
           <input
             type="file"
             hidden
@@ -198,6 +222,7 @@ export default function ImageGallery() {
             onChange={handleFileChange}
             accept="image/*"
           />
+
           <button
             onClick={handleUploadClick}
             disabled={isUploading}
