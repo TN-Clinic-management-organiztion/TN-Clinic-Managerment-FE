@@ -129,6 +129,7 @@ export default function ServiceOrderModal(props: Props) {
           limit: 100,
           parent_id: null,
         } as any);
+        console.log("getAllServiceCategories: ", raw);
         setCategories(normalizeList<Category>(raw));
       } catch (e) {
         console.error("Load categories error:", e);
@@ -419,9 +420,9 @@ export default function ServiceOrderModal(props: Props) {
                   </thead>
 
                   <tbody>
-                    {assignedRows.map((row) => (
+                    {assignedRows.map((row, index) => (
                       <tr
-                        key={`${row.room_id}-${row.service_id}`}
+                        key={`${row.room_id}-${row.service_id}-${index}`}
                         className="border-b border-secondary-100 hover:bg-primary-0"
                       >
                         <td className="p-2 font-semibold text-secondary-700">
