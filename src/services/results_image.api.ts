@@ -13,8 +13,6 @@ export const uploadResultImage = async (
   formData.append("image_width", String(width));
   formData.append("image_height", String(height));
 
-  console.log("String(width): ", String(width));
-
   if (resultId) formData.append("result_id", resultId);
 
   const res = await axiosInstance.post(`results/images/upload`, formData, {

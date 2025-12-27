@@ -101,9 +101,6 @@ export const authConfig: NextAuthConfig = {
         const tokens = await backendLogin(username, password);
         const payload = decodeJwtPayload(tokens.access_token);
 
-        console.log("TOKENS =", tokens);
-        console.log("PAYLOAD =", payload);
-
         if (!payload?.sub) return null;
 
         // NextAuth "user" object -> đưa data cần dùng vào đây
@@ -131,7 +128,6 @@ export const authConfig: NextAuthConfig = {
     // JWT callback
     async jwt({ token, user }) {
       if (user) {
-        console.log("user: ", user);
         token.user = {
           id: (user as any).id,
           username: (user as any).username,

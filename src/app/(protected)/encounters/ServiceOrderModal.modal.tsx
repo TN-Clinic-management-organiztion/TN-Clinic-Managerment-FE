@@ -130,7 +130,6 @@ export default function ServiceOrderModal(props: Props) {
           limit: 100,
           parent_id: null,
         } as any);
-        console.log("getAllServiceCategories: ", raw);
         setCategories(normalizeList<Category>(raw));
       } catch (e) {
         console.error("Load categories error:", e);
@@ -141,9 +140,6 @@ export default function ServiceOrderModal(props: Props) {
     })();
   }, [props.open]);
 
-  // =========================
-  // ✅ GIỮ NGUYÊN fetch services (KHÔNG ĐỤNG)
-  // =========================
   useEffect(() => {
     if (!props.open) return;
 

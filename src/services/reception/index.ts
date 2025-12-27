@@ -26,7 +26,6 @@ export const getAllTicketReception = async (
 
 export const postQueueTicketWalkin = async (payload: CreateTicketPayload) => {
   try {
-    console.log("payload: ", payload);
     const res = await axiosInstance.post("/reception/queue/tickets", {
       room_id: payload.room_id,
       ticket_type: "REGISTRATION",
@@ -49,7 +48,6 @@ export const getQueueTicketConsultationByEncounterIdAndTicketType = async (
         ticket_type: "CONSULTATION",
       },
     });
-    console.log("CONSULTATION encounter ticket_type:", response);
     return response.data.data;
   } catch (error) {
     console.error(
@@ -171,7 +169,6 @@ export const postCreateTicketForCLS = async (payload: CreateTicketPayload) => {
 export const getQueueTicketsTodayByRoomId = async (id: number) => {
   // Kĩ thuật viên tại phòng đó có thể lấy những queue_tickets gồm các serviceIds được chỉ định đến
   try {
-    console.log("id trong hàm: ", id);
     const response = await axiosInstance.get(
       `/reception/queue/tickets/today/${id}`
     );

@@ -267,7 +267,6 @@ export default function ReceptionPage() {
   // =========================
   const handleKioskTicket = async () => {
     const roomId = session?.user?.assigned_room_id;
-    console.log("session: ", session);
     if (!roomId) {
       notifyError("Không xác định được phòng tiếp đón (assigned_room_id).");
       return;

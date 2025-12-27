@@ -10,7 +10,6 @@ export interface CreateResultDto {
 
 export const postCreateServiceResults = async (dto: CreateResultDto) => {
   try {
-    console.log("dto postCreateServiceResults: ", dto)
     const response = await axiosInstance.post("/results", dto);
     return response.data.data;
   } catch (error) {
