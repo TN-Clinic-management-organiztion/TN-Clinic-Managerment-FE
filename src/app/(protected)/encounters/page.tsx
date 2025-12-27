@@ -7,6 +7,7 @@ import {
   ClipboardList,
   FlaskConical,
   Pill,
+  RefreshCcw,
   Search,
 } from "lucide-react";
 import { useSession } from "next-auth/react";
@@ -35,6 +36,10 @@ import {
   postStartConsultation,
   type UpdateEncounterDto,
 } from "@/services/encounters";
+import { getAllIcd10 } from "@/services/icd10";
+import { useDebounce } from "@/hook/useDebounce";
+import { toast } from "react-toastify";
+import { notifyError, notifySuccess } from "@/components/toast";
 
 // ====== FE types ======
 type PatientLite = {
@@ -102,10 +107,10 @@ const waitingBucket = (s: EncounterStatus) =>
   [EncounterStatus.REGISTERED, EncounterStatus.AWAITING_PAYMENT].includes(s);
 
 // ===== ICD API =====
-async function searchIcd10(query: string): Promise<RefIcd10Lite[]> {
-  const res = await axiosInstance.get("ref/icd10", { params: { query } });
-  return (res.data?.data ?? res.data) as RefIcd10Lite[];
-}
+// async function searchIcd10(query: string): Promise<RefIcd10Lite[]> {
+//   const res = await axiosInstance.get("ref/icd10", { params: { query } });
+//   return (res.data?.data ?? res.data) as RefIcd10Lite[];
+// }
 
 export default function DoctorPage() {
   const { data: session } = useSession();
@@ -127,6 +132,111 @@ export default function DoctorPage() {
   const [icdQuery, setIcdQuery] = useState("");
   const [icdList, setIcdList] = useState<RefIcd10Lite[]>([]);
   const [icdLoading, setIcdLoading] = useState(false);
+  const [icdOpen, setIcdOpen] = useState(false);
+  const [icdActiveIndex, setIcdActiveIndex] = useState(-1);
+
+  const icdBoxRef = React.useRef<HTMLDivElement | null>(null);
+  const abortRef = React.useRef<AbortController | null>(null);
+  const suppressNextSearchRef = React.useRef(false);
+  const cacheRef = React.useRef(new Map<string, RefIcd10Lite[]>());
+
+  const debouncedIcdQuery = useDebounce(icdQuery, 250); //
+
+  // đóng dropdown khi click ra ngoài
+  useEffect(() => {
+    const onDown = (e: MouseEvent) => {
+      if (!icdBoxRef.current) return;
+      if (!icdBoxRef.current.contains(e.target as Node)) {
+        setIcdOpen(false);
+        setIcdActiveIndex(-1);
+      }
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, []);
+
+  // auto call API khi gõ
+  useEffect(() => {
+    const q = debouncedIcdQuery.trim();
+
+    // nếu vừa chọn item thì bỏ qua 1 lần search (tránh gọi lại vì set input)
+    if (suppressNextSearchRef.current) {
+      suppressNextSearchRef.current = false;
+      return;
+    }
+
+    // rule: ít nhất 2 ký tự mới search (đỡ nặng DB)
+    if (q.length < 1) {
+      abortRef.current?.abort();
+      setIcdList([]);
+      setIcdOpen(false);
+      setIcdLoading(false);
+      setIcdActiveIndex(-1);
+      return;
+    }
+
+    // cache (gõ lại không gọi API)
+    const cached = cacheRef.current.get(q);
+    if (cached) {
+      setIcdList(cached);
+      setIcdOpen(true);
+      setIcdActiveIndex(cached.length ? 0 : -1);
+      return;
+    }
+
+    // cancel request cũ
+    abortRef.current?.abort();
+    const ac = new AbortController();
+    abortRef.current = ac;
+
+    setIcdLoading(true);
+
+    (async () => {
+      try {
+        const res = await getAllIcd10(
+          { search: q, page: 1, limit: 20 },
+          ac.signal
+        );
+        const list = (res?.data ?? []) as RefIcd10Lite[];
+
+        // lưu cache
+        cacheRef.current.set(q, list);
+
+        setIcdList(list);
+        setIcdOpen(true);
+        setIcdActiveIndex(list.length ? 0 : -1);
+      } catch (e: any) {
+        // nếu bị abort thì thôi
+        if (e?.name === "CanceledError" || e?.code === "ERR_CANCELED") return;
+        console.error("searchIcd error:", e);
+        setIcdList([]);
+        setIcdOpen(true); // vẫn mở để hiện “không tìm thấy”
+        setIcdActiveIndex(-1);
+      } finally {
+        setIcdLoading(false);
+      }
+    })();
+
+    return () => ac.abort();
+  }, [debouncedIcdQuery]);
+
+  const selectIcd = (x: RefIcd10Lite) => {
+    setCurrent((p) =>
+      p
+        ? {
+            ...p,
+            final_icd_code: x.icd_code,
+            icd_ref: x,
+          }
+        : p
+    );
+
+    suppressNextSearchRef.current = true;
+    setIcdQuery(`${x.icd_code} - ${x.name_vi}`);
+    setIcdOpen(false);
+    setIcdList([]);
+    setIcdActiveIndex(-1);
+  };
 
   // Modals
   const [openOrder, setOpenOrder] = useState(false);
@@ -135,7 +245,6 @@ export default function DoctorPage() {
 
   // ===== Load queue =====
   const loadQueue = async () => {
-    console.log("roomIdFromSession: ", roomIdFromSession);
     setLoading(true);
     try {
       if (roomIdFromSession) {
@@ -263,32 +372,35 @@ export default function DoctorPage() {
         final_icd_code: finalIcd,
         doctor_conclusion: conclusion,
       });
-
+      notifySuccess("Hoàn thành ca khám bệnh");
+      setIcdQuery("");
       setCurrent(null);
       await loadQueue();
       setTab("WAITING");
     } catch (e) {
       console.error("completeEncounter error:", e);
+      notifyError("Đơn Khám chưa hoàn hành");
     } finally {
       setLoading(false);
     }
   };
 
   // ===== ICD10 search =====
-  const handleSearchIcd = async () => {
-    const q = icdQuery.trim();
-    if (!q) return;
-    setIcdLoading(true);
-    try {
-      const data = await searchIcd10(q);
-      setIcdList(data ?? []);
-    } catch (e) {
-      console.error("searchIcd error:", e);
-      setIcdList([]);
-    } finally {
-      setIcdLoading(false);
-    }
-  };
+  // const handleSearchIcd = async () => {
+  //   const q = icdQuery.trim();
+  //   if (!q) return;
+  //   setIcdLoading(true);
+  //   try {
+  //     const data = await getAllIcd10(q);
+  //     console.log("data icd10: ", data);
+  //     setIcdList(data ?? []);
+  //   } catch (e) {
+  //     console.error("searchIcd error:", e);
+  //     setIcdList([]);
+  //   } finally {
+  //     setIcdLoading(false);
+  //   }
+  // };
   // Chỉ định / Service đã được chỉ định
   const [viewTab, setViewTab] = useState<"PICK" | "ASSIGNED">("PICK");
 
@@ -355,6 +467,21 @@ export default function DoctorPage() {
                   <BadgeCheck size={16} /> Hoàn thành
                 </span>
               </SquareButton>
+
+              <button
+                className="p-2 border border-secondary-200 rounded-[2px] bg-white hover:bg-secondary-100"
+                onClick={loadQueue}
+                disabled={loading || !roomIdFromSession}
+                title="Tải lại hàng đợi"
+              >
+                <RefreshCcw
+                  size={16}
+                  className={cn(
+                    "text-secondary-700",
+                    loading && "animate-spin"
+                  )}
+                />
+              </button>
             </div>
           </div>
 
@@ -577,58 +704,104 @@ export default function DoctorPage() {
 
                 {/* ICD10 */}
                 <div className="col-span-12 border-t border-secondary-200 pt-3 grid grid-cols-12 gap-3">
-                  <div className="col-span-5">
+                  <div className="col-span-5" ref={icdBoxRef}>
                     <div className="text-[11px] uppercase font-bold text-secondary-500">
                       ICD10 (chẩn đoán cuối)
                     </div>
-                    <div className="flex gap-2">
-                      <Input
-                        value={icdQuery}
-                        onChange={(e) => setIcdQuery(e.target.value)}
-                        placeholder="Nhập mã hoặc tên ICD10..."
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") handleSearchIcd();
-                        }}
-                      />
-                      <SquareButton
-                        className="bg-primary-600 hover:bg-primary-700 border-primary-700 text-white"
-                        onClick={handleSearchIcd}
-                        disabled={icdLoading}
-                        title="Tìm ICD"
-                      >
-                        <Search size={16} />
-                      </SquareButton>
-                    </div>
 
-                    {icdList.length > 0 && (
-                      <div className="mt-2 border border-secondary-200 bg-white rounded-[2px] max-h-40 overflow-auto">
-                        {icdList.map((x) => (
-                          <button
-                            key={x.icd_code}
-                            className={cn(
-                              "w-full text-left px-2 py-2 border-b border-secondary-100 hover:bg-primary-0 text-sm",
-                              current?.final_icd_code === x.icd_code &&
-                                "bg-primary-100/60"
-                            )}
-                            onClick={() => {
-                              setCurrent((p) =>
-                                p
-                                  ? {
-                                      ...p,
-                                      final_icd_code: x.icd_code,
-                                      icd_ref: x,
-                                    }
-                                  : p
+                    <div className="relative">
+                      <div className="flex gap-2">
+                        <Input
+                          value={icdQuery}
+                          onChange={(e) => {
+                            setIcdQuery(e.target.value);
+                            setIcdOpen(true);
+                          }}
+                          onFocus={() => {
+                            if (icdList.length > 0) setIcdOpen(true);
+                          }}
+                          placeholder="Nhập mã hoặc tên ICD10..."
+                          onKeyDown={(e) => {
+                            if (
+                              !icdOpen &&
+                              (e.key === "ArrowDown" || e.key === "ArrowUp")
+                            ) {
+                              setIcdOpen(true);
+                              return;
+                            }
+
+                            if (e.key === "Escape") {
+                              setIcdOpen(false);
+                              setIcdActiveIndex(-1);
+                            }
+
+                            if (e.key === "ArrowDown") {
+                              e.preventDefault();
+                              setIcdActiveIndex((i) =>
+                                Math.min(i + 1, Math.max(icdList.length - 1, 0))
                               );
-                              setIcdList([]);
-                              setIcdQuery(`${x.icd_code} - ${x.name_vi}`);
-                            }}
-                          >
-                            <b>{x.icd_code}</b> — {x.name_vi}
-                          </button>
-                        ))}
+                            }
+
+                            if (e.key === "ArrowUp") {
+                              e.preventDefault();
+                              setIcdActiveIndex((i) => Math.max(i - 1, 0));
+                            }
+
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const pick = icdList[icdActiveIndex];
+                              if (pick) selectIcd(pick);
+                            }
+                          }}
+                        />
+
+                        <SquareButton
+                          className="bg-primary-600 hover:bg-primary-700 border-primary-700 text-white"
+                          onClick={() => setIcdOpen((v) => !v)}
+                          disabled={icdLoading}
+                          title="Mở danh sách ICD"
+                        >
+                          <Search size={16} />
+                        </SquareButton>
                       </div>
-                    )}
+
+                      {/* Dropdown */}
+                      {icdOpen && (
+                        <div className="absolute z-50 mt-2 w-full border border-secondary-200 bg-white rounded-[2px] max-h-56 overflow-auto shadow-sm">
+                          {icdLoading && (
+                            <div className="px-2 py-2 text-sm text-secondary-500">
+                              Đang tìm...
+                            </div>
+                          )}
+
+                          {!icdLoading &&
+                            icdList.length === 0 &&
+                            icdQuery.trim().length >= 2 && (
+                              <div className="px-2 py-2 text-sm text-secondary-500">
+                                Không tìm thấy ICD phù hợp.
+                              </div>
+                            )}
+
+                          {!icdLoading &&
+                            icdList.map((x, idx) => (
+                              <button
+                                key={x.icd_code}
+                                type="button"
+                                className={cn(
+                                  "w-full text-left px-2 py-2 border-b border-secondary-100 text-sm",
+                                  "hover:bg-primary-0",
+                                  idx === icdActiveIndex && "bg-primary-100/60"
+                                )}
+                                onMouseEnter={() => setIcdActiveIndex(idx)}
+                                onMouseDown={(e) => e.preventDefault()} // giữ focus input
+                                onClick={() => selectIcd(x)}
+                              >
+                                <b>{x.icd_code}</b> — {x.name_vi}
+                              </button>
+                            ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
 
                   <div className="col-span-7">

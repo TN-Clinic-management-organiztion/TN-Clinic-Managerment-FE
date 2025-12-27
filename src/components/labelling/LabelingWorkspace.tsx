@@ -44,6 +44,7 @@ import {
   setAnnotationDeprecated,
 } from "@/services/ai-core.api";
 import { useSession } from "next-auth/react";
+import { notifyError, notifySuccess } from "@/components/toast";
 
 // --- CONFIG ---
 const AI_CLASSES = [
@@ -261,7 +262,7 @@ const LabelingWorkspace = ({ imageId }: Props) => {
       setCurrentBoxes([]);
       setIsEditing(true);
     } catch (error) {
-      toast.error("Lỗi tải dữ liệu");
+      notifyError("Lỗi tải dữ liệu");
     } finally {
       setLoading(false);
     }
@@ -292,10 +293,10 @@ const LabelingWorkspace = ({ imageId }: Props) => {
             item.id,
             "Đánh dấu thủ công bởi bác sĩ"
           );
-          toast.success("Đã đánh dấu bản ghi là Lạc hậu");
+          notifySuccess("Đã đánh dấu bản ghi là Lạc hậu");
           fetchDetail();
         } catch (error) {
-          toast.error("Thao tác thất bại");
+          notifyError("Thao tác thất bại");
         } finally {
           closeConfirm();
         }
@@ -329,10 +330,10 @@ const LabelingWorkspace = ({ imageId }: Props) => {
           await approveHumanAnnotation(imageId, {
             approved_by: session?.user.id,
           });
-          toast.success("Đã duyệt thành công!");
+          notifySuccess("Đã duyệt thành công!");
           fetchDetail();
         } catch (e) {
-          toast.error("Lỗi khi duyệt.");
+          notifyError("Lỗi khi duyệt.");
         } finally {
           closeConfirm();
         }
@@ -364,11 +365,11 @@ const LabelingWorkspace = ({ imageId }: Props) => {
         labeled_by: session?.user.id,
         annotation_status: "SUBMITTED",
       });
-      toast.success("Đã lưu và nộp kết quả thành công!");
+      notifySuccess("Đã lưu và nộp kết quả thành công!");
       setIsEditing(false);
       fetchDetail();
     } catch (e) {
-      toast.error("Lỗi khi lưu kết quả");
+      notifyError("Lỗi khi lưu kết quả");
     }
   };
 
@@ -387,10 +388,10 @@ const LabelingWorkspace = ({ imageId }: Props) => {
       });
       setShowRejectInput(false);
       setRejectReasonInput("");
-      toast.success("Đã từ chối kết quả");
+      notifySuccess("Đã từ chối kết quả");
       fetchDetail();
     } catch (e) {
-      toast.error("Lỗi khi từ chối");
+      notifyError("Lỗi khi từ chối");
     }
   };
 
