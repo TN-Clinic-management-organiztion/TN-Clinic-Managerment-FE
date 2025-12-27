@@ -21,6 +21,7 @@ export const getSearchPatient = async (search: PatientSearchDto) => {
 
 export const postCreatePatient = async (createPatientDto: CreatePatientDto) => {
   try {
+    console.log("createPatientDto: ", createPatientDto);
     const response = await axiosInstance.post("/patients", createPatientDto);
     return response.data.data;
   } catch (error) {
@@ -29,9 +30,15 @@ export const postCreatePatient = async (createPatientDto: CreatePatientDto) => {
   }
 };
 
-export const putUpdatePatient = async (patientId: string, updatePatientDto: UpdatePatientDto) => {
+export const putUpdatePatient = async (
+  patientId: string,
+  updatePatientDto: UpdatePatientDto
+) => {
   try {
-    const response = await axiosInstance.put(`/patients/${patientId}`, updatePatientDto);
+    const response = await axiosInstance.put(
+      `/patients/${patientId}`,
+      updatePatientDto
+    );
     return response.data.data;
   } catch (error) {
     console.error("Update Patient error: ", error);

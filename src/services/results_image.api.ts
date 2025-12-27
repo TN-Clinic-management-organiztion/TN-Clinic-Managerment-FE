@@ -10,8 +10,10 @@ export const uploadResultImage = async (
   const formData = new FormData();
   formData.append("file", file);
   formData.append("uploaded_by", uploadedBy);
-  formData.append("width", String(width));
-  formData.append("height", String(height));
+  formData.append("image_width", String(width));
+  formData.append("image_height", String(height));
+
+  console.log("String(width): ", String(width));
 
   if (resultId) formData.append("result_id", resultId);
 

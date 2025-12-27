@@ -84,6 +84,7 @@ export const getEncounterByRoomId = async (assigned_room_id: number) => {
     const response = await axiosInstance.get("clinical/encounters", {
       params: payload,
     });
+    console.log("response get encounterByRoomId: ", response);
     return response.data.data;
   } catch (error) {
     console.error("Get encounters by assigned room id error:", error);
