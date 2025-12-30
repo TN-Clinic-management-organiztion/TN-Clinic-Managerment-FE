@@ -116,9 +116,7 @@ export default function ServiceOrderModal(props: Props) {
     Array<{ svc: Service; qty: number }>
   >([]);
 
-  // =========================
-  // ✅ GIỮ NGUYÊN fetch categories (KHÔNG ĐỤNG)
-  // =========================
+  // Get all categories
   useEffect(() => {
     if (!props.open) return;
 
@@ -139,7 +137,7 @@ export default function ServiceOrderModal(props: Props) {
       }
     })();
   }, [props.open]);
-
+          
   useEffect(() => {
     if (!props.open) return;
 
@@ -202,11 +200,8 @@ export default function ServiceOrderModal(props: Props) {
         setSubmitError("Bạn chưa chọn dịch vụ nào.");
         return;
       }
-
-      // ✅ TODO: lấy id bác sĩ / người chỉ định
-      // Ví dụ nếu bạn có session:
       // const requestingDoctorId = session?.user?.id;
-      const requestingDoctorId = (session as any)?.user?.id; // 👈 nếu bạn đang dùng next-auth
+      const requestingDoctorId = (session as any)?.user?.id;
       if (!requestingDoctorId) {
         setSubmitError(
           "Thiếu requesting_doctor_id (id bác sĩ/người chỉ định)."
@@ -240,7 +235,7 @@ export default function ServiceOrderModal(props: Props) {
         return;
       }
 
-      // ✅ Tạo ticket + service_request theo từng phòng
+      // Tạo ticket + service_request theo từng phòng
       for (const [room_id, setSvc] of roomToServices.entries()) {
         const serviceIdsForRoom = Array.from(setSvc);
 
@@ -258,7 +253,7 @@ export default function ServiceOrderModal(props: Props) {
         const payloadServiceRequest: CreateServiceRequestDto = {
           encounter_id: props.encounterId,
           requesting_doctor_id: requestingDoctorId,
-          notes: undefined, // hoặc bạn gán notes từ UI
+          notes: undefined,
           items: serviceIdsForRoom.map((id) => ({ service_id: id })),
         };
 
@@ -277,10 +272,6 @@ export default function ServiceOrderModal(props: Props) {
   };
 
   const rootOptions = useMemo(() => categories, [categories]);
-
-  // =========================
-  // ✅ load assigned services (KHÔNG ĐỤNG fetch)
-  // =========================
   const loadAssignedServices = async () => {
     if (!props.encounterId) return;
 

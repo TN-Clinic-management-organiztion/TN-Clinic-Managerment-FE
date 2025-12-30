@@ -23,7 +23,6 @@ import {
 } from "@/components/ui/square";
 
 import ServiceOrderModal from "./ServiceOrderModal.modal";
-import MedicationModal from "./MedicationModal.modal";
 import ResultsModal from "./ResultsModal.modal";
 
 // ====== encounters services ======
@@ -105,12 +104,6 @@ const inConsultationBucket = (s: EncounterStatus) =>
 
 const waitingBucket = (s: EncounterStatus) =>
   [EncounterStatus.REGISTERED, EncounterStatus.AWAITING_PAYMENT].includes(s);
-
-// ===== ICD API =====
-// async function searchIcd10(query: string): Promise<RefIcd10Lite[]> {
-//   const res = await axiosInstance.get("ref/icd10", { params: { query } });
-//   return (res.data?.data ?? res.data) as RefIcd10Lite[];
-// }
 
 export default function DoctorPage() {
   const { data: session } = useSession();
@@ -206,11 +199,10 @@ export default function DoctorPage() {
         setIcdOpen(true);
         setIcdActiveIndex(list.length ? 0 : -1);
       } catch (e: any) {
-        // nếu bị abort thì thôi
         if (e?.name === "CanceledError" || e?.code === "ERR_CANCELED") return;
         console.error("searchIcd error:", e);
         setIcdList([]);
-        setIcdOpen(true); // vẫn mở để hiện “không tìm thấy”
+        setIcdOpen(true);
         setIcdActiveIndex(-1);
       } finally {
         setIcdLoading(false);
@@ -240,7 +232,6 @@ export default function DoctorPage() {
 
   // Modals
   const [openOrder, setOpenOrder] = useState(false);
-  const [openRx, setOpenRx] = useState(false);
   const [openResults, setOpenResults] = useState(false);
 
   // ===== Load queue =====
@@ -829,13 +820,13 @@ export default function DoctorPage() {
             {(tab === "WAITING" ? waitingList : inProgressList).map((e) => (
               <div
                 key={e.encounter_id}
-                className="border border-secondary-200 bg-white rounded-[2px]"
+                className="border border-secondary-400 bg-white rounded-[3px]"
               >
-                <div className="p-2 border-b border-secondary-100">
-                  <div className="text-xs font-bold uppercase truncate">
+                <div className="flex flex-col p-2 border-b border-secondary-100 gap-1">
+                  <div className="text-sm font-bold uppercase truncate">
                     {e.patient?.full_name ?? e.patient_id ?? "—"}
                   </div>
-                  <div className="text-[11px] text-secondary-500">
+                  <div className="text-xs text-secondary-500">
                     {e.current_status} •{" "}
                     {e.visit_date
                       ? new Date(e.visit_date).toLocaleString("vi-VN")
@@ -843,7 +834,7 @@ export default function DoctorPage() {
                   </div>
                 </div>
 
-                <div className="p-2 grid grid-cols-2 gap-2">
+                <div className="p-2 grid gap-2">
                   {waitingBucket(e.current_status) ? (
                     <>
                       <SquareButton
@@ -852,13 +843,6 @@ export default function DoctorPage() {
                         disabled={loading}
                       >
                         Bắt đầu khám
-                      </SquareButton>
-                      <SquareButton
-                        className="bg-secondary-100 hover:bg-secondary-200 border-secondary-200 text-secondary-900"
-                        onClick={() => openEncounter(e.encounter_id)}
-                        disabled={loading}
-                      >
-                        Mở hồ sơ
                       </SquareButton>
                     </>
                   ) : (
@@ -890,17 +874,7 @@ export default function DoctorPage() {
         onClose={() => setOpenOrder(false)}
         encounterId={current?.encounter_id ?? null}
         onCreated={async () => {
-          // tùy bạn: reload lại encounter/queue sau khi tạo chỉ định
-          if (current?.encounter_id) await openEncounter(current.encounter_id);
-          await loadQueue();
-        }}
-      />
-
-      <MedicationModal
-        open={openRx}
-        onClose={() => setOpenRx(false)}
-        encounterId={current?.encounter_id ?? null}
-        onCreated={async () => {
+          notifySuccess("Tạo chị định Cận lâm sàng thành công");
           if (current?.encounter_id) await openEncounter(current.encounter_id);
           await loadQueue();
         }}
