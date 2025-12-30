@@ -18,11 +18,8 @@ function normalizeWheelDelta(e: WheelEvent) {
 
 export default function ScrollStorySection() {
   const sectionRef = useRef<HTMLElement | null>(null);
-
-  // UI progress hiển thị
   const [progress, setProgress] = useState(0);
 
-  // target: đích đến, current: đang chạy tới đích
   const targetRef = useRef(0);
   const currentRef = useRef(0);
 
@@ -31,10 +28,8 @@ export default function ScrollStorySection() {
   const [active, setActive] = useState(false);
   const activeRef = useRef(false);
 
-  // tránh stale closure khi setState theo ngưỡng
   const lastSetRef = useRef(0);
 
-  // Track đã xem những slide nào (để “xem hết mới được xuống dưới”)
   const visitedRef = useRef<Set<number>>(new Set([0]));
 
   const screens: Screen[] = useMemo(
@@ -65,7 +60,6 @@ export default function ScrollStorySection() {
 
   const max = screens.length - 1;
 
-  // preload ảnh cho đỡ giật khi đổi slide
   useEffect(() => {
     screens.forEach((s) => {
       const img = new Image();
@@ -73,7 +67,6 @@ export default function ScrollStorySection() {
     });
   }, [screens]);
 
-  // detect khi section đang pinned để “trap scroll”
   useEffect(() => {
     const onScroll = () => {
       const el = sectionRef.current;
@@ -91,7 +84,7 @@ export default function ScrollStorySection() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // ticker: lerp current -> target (mượt)
+  // ticker: lerp current
   const startTicker = () => {
     if (rafRef.current != null) return;
 
@@ -99,7 +92,6 @@ export default function ScrollStorySection() {
       const cur = currentRef.current;
       const target = targetRef.current;
 
-      // thấp hơn = chậm hơn (đọc dễ hơn)
       const next = lerp(cur, target, 0.10);
       currentRef.current = next;
 
@@ -122,7 +114,6 @@ export default function ScrollStorySection() {
     rafRef.current = requestAnimationFrame(tick);
   };
 
-  // Mark visited theo slide hiện tại
   const i = Math.floor(progress);
   const t = progress - i;
 
@@ -130,17 +121,16 @@ export default function ScrollStorySection() {
     visitedRef.current.add(i);
   }, [i]);
 
-  // ===== Scroll “đọc được” + “xem hết mới thoát xuống dưới” =====
   useEffect(() => {
     // TUNING
-    const STEP_THRESHOLD = 260; // tăng => khó nhảy slide hơn
-    const HOLD_MS = 600;       // đứng lại sau mỗi lần chuyển slide
-    const SNAP_IDLE_MS = 200;   // dừng cuộn thì snap về số nguyên
-    const FORCE_BREAK = 900;    // cuộn mạnh quá có thể “phá hold”
+    const STEP_THRESHOLD = 260; 
+    const HOLD_MS = 600;      
+    const SNAP_IDLE_MS = 200;  
+    const FORCE_BREAK = 900;    
 
     // Exit control
-    const EXIT_THRESHOLD = 320; // phải cuộn thêm ở biên để thoát (chống lỡ tay)
-    const EXIT_SNAP_EPS = 0.02; // phải thật sự đứng đúng slide biên
+    const EXIT_THRESHOLD = 320; 
+    const EXIT_SNAP_EPS = 0.02; 
 
     const wheelAccumRef = { current: 0 };
     const lockUntilRef = { current: 0 };
@@ -154,11 +144,10 @@ export default function ScrollStorySection() {
 
       const r = el.getBoundingClientRect();
 
-      // Tính đúng lượng cần scroll để thoát active (không bị kẹt sticky)
       const by =
         dir === 1
-          ? r.bottom - window.innerHeight + 2 // xuống: làm r.bottom < viewport
-          : -(Math.abs(r.top) + 2);           // lên: làm r.top > 0
+          ? r.bottom - window.innerHeight + 2 
+          : -(Math.abs(r.top) + 2);           
 
       window.scrollBy({ top: by, behavior: "smooth" });
     };
@@ -169,8 +158,6 @@ export default function ScrollStorySection() {
       const dy = normalizeWheelDelta(e);
       const now = performance.now();
 
-      // Khi active: mặc định CHẶN scroll trang để không “lọt” qua section
-      // (chỉ thoát khi ta cho phép theo logic bên dưới)
       e.preventDefault();
 
       const viewedAll = visitedRef.current.size >= screens.length;
@@ -180,10 +167,7 @@ export default function ScrollStorySection() {
       const atBottom =
         roundedTarget >= max && Math.abs(currentRef.current - max) < EXIT_SNAP_EPS;
 
-      // ====== 1) Logic thoát section (anti skip) ======
-      // Thoát xuống: phải ở slide cuối + đã xem đủ + cuộn thêm (EXIT_THRESHOLD)
       if (atBottom && dy > 0) {
-        // tôn trọng HOLD để đọc
         if (now < lockUntilRef.current) {
           if (Math.abs(dy) < FORCE_BREAK) return;
           lockUntilRef.current = 0;
@@ -330,25 +314,16 @@ export default function ScrollStorySection() {
                       </span>
                     </div>
 
-                    <h2 className="text-xl lg:text-2xl font-bold text-white mb-3 leading-tight">
+                    <h2 className="text-xl lg:text-2xl font-bold text-white mb-3 leading-tight transition ease-linear">
                       {nxt.title}
                     </h2>
 
-                    <p className="text-sm lg:text-base text-white/85 leading-relaxed">
+                    <p className="text-sm lg:text-base text-white/85 leading-relaxed transition ease-linear">
                       {nxt.desc}
                     </p>
                   </motion.div>
                 )}
               </div>
-
-              {/* Hint
-              <div className="mt-6 text-xs text-white/55">
-                {active
-                  ? i === max
-                    ? "Đã xem hết. Cuộn thêm để xuống dưới."
-                    : "Cuộn để chuyển bước (đã khóa scroll trang)."
-                  : "Kéo tới section để kích hoạt"}
-              </div> */}
             </div>
           </div>
         </div>
