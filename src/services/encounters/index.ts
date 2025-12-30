@@ -19,7 +19,7 @@ export interface CreateEncounterDto {
   initial_symptoms?: string;
   weight?: number; // Cân nặng (kg)
   height?: number; // Chiều cao (cm)
-  bmi?: number; // BMI (Có thể gửi từ FE hoặc để BE tự tính)
+  bmi?: number; // BMI
   temperature?: number; // Nhiệt độ
   pulse?: number; // Mạch
   respiratory_rate?: number; // Nhịp thở

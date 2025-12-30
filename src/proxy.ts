@@ -6,10 +6,9 @@ import { NextResponse } from "next/server";
 
 export { auth as middleware } from "@/lib/auth/auth";
 
-const PUBLIC_ROUTES = ["/login"];
+const PUBLIC_ROUTES = ["/login", "/"];
 
 export default auth((req) => {
-  console.log("Hehe!");
   const isLoggedIn = !!req.auth;
   const role = req.auth?.user.role as RoleCode | undefined;
   const { pathname } = req.nextUrl;
@@ -24,8 +23,12 @@ export default auth((req) => {
   }
 
   if (isLoggedIn) {
-    if (isPublicPage || pathname === "/") {
-      console.log("Hehehe");
+    
+    if(pathname === "/") {
+      return NextResponse.next();
+    }
+
+    if (isPublicPage) {
       return NextResponse.redirect(new URL(getDefaultRoute(role), req.url));
     }
     // Check Route
