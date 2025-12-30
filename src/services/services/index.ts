@@ -15,7 +15,6 @@ export const getAllServices = async (query: QueryServiceDto) => {
     const response = await axiosInstance.get("/services", {
       params: query,
     });
-    console.log("reponse.data: ", response.data);
     return response.data.data;
   } catch (error: any) {
     console.error("Find services error: ", error);
@@ -52,7 +51,6 @@ export const getAssignedServicesByEncounter = async (encounterId: string) => {
     const res = await axiosInstance.get(
       `/services/encounters/${encounterId}/assigned-services`
     );
-    console.log("res.data.data: ", res.data.data);
     return res.data.data;
   } catch (error) {
     console.error("Get assigned services by encounter error: ", error);

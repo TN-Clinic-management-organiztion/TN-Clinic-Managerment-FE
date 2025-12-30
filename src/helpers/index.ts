@@ -17,8 +17,6 @@ export const formatTime = (iso: string) => {
 
 // Helper inline để tránh import issue
 export const getDefaultRoute = (role?: RoleCode) => {
-  console.log("getDefaultRoute called with role:", role);
-
   // So sánh trực tiếp với string
   if (role === "DOCTOR") return "/encounters";
   if (role === "RECEPTIONIST") return "/reception";

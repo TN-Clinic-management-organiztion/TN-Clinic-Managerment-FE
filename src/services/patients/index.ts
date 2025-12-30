@@ -21,7 +21,6 @@ export const getSearchPatient = async (search: PatientSearchDto) => {
 
 export const postCreatePatient = async (createPatientDto: CreatePatientDto) => {
   try {
-    console.log("createPatientDto: ", createPatientDto);
     const response = await axiosInstance.post("/patients", createPatientDto);
     return response.data.data;
   } catch (error) {

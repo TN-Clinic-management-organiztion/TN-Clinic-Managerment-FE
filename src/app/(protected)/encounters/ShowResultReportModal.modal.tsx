@@ -16,7 +16,6 @@ export type NormalizedDetection = {
 };
 
 export function normalizeDetections(apiResponse: any): NormalizedDetection[] {
-  console.log("apiResponse: ", apiResponse);
   let annotation_data: any[] = [];
   // Trường hợp 1: response là mảng detections luôn
   if (Array.isArray(apiResponse)) {
@@ -34,8 +33,6 @@ export function normalizeDetections(apiResponse: any): NormalizedDetection[] {
     annotation_data = apiResponse.detections;
   }
 
-  console.log("annotation_data: ", annotation_data);
-
   return annotation_data
     .map((d: any) => {
       const b = d?.bbox;
@@ -47,8 +44,6 @@ export function normalizeDetections(apiResponse: any): NormalizedDetection[] {
       const y2 = Number(b.y2 ?? b[3]);
 
       if (![x1, y1, x2, y2].every(Number.isFinite)) return null;
-      console.log("x1: ", x1);
-      console.log("d?.class?.name: ", d?.class?.name);
       return {
         x1,
         y1,
@@ -65,7 +60,6 @@ export function normalizeDetections(apiResponse: any): NormalizedDetection[] {
 function BBoxPreview(props: { imageUrl: string; detections: any[] }) {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const imgRef = React.useRef<HTMLImageElement | null>(null);
-  console.log("detections BBoxPreview: ", props.detections);
   useEffect(() => {
     const img = imgRef.current;
     const canvas = canvasRef.current;
@@ -176,7 +170,6 @@ export default function ShowResultReportModal(props: {
   if (!props.open || !props.result) return null;
 
   const { result } = props;
-  console.log("result: ", result);
   const images = result.images ?? [];
   const hasImages = images.length > 0;
 
@@ -188,8 +181,6 @@ export default function ShowResultReportModal(props: {
   const showAiPanel =
     firstAnnotation?.annotation_data &&
     firstAnnotation.annotation_data.length > 0;
-
-  console.log("imageWithAnnotation: ", imageWithAnnotation);
 
   const fmt = (v?: string | null) => {
     if (!v) return "--";

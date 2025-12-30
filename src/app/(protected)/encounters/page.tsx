@@ -240,7 +240,6 @@ export default function DoctorPage() {
     try {
       if (roomIdFromSession) {
         const data = await getEncounterByRoomId(roomIdFromSession);
-        console.log("data: ", data);
         setQueue(data ?? []);
       }
     } catch (e) {
@@ -376,22 +375,6 @@ export default function DoctorPage() {
     }
   };
 
-  // ===== ICD10 search =====
-  // const handleSearchIcd = async () => {
-  //   const q = icdQuery.trim();
-  //   if (!q) return;
-  //   setIcdLoading(true);
-  //   try {
-  //     const data = await getAllIcd10(q);
-  //     console.log("data icd10: ", data);
-  //     setIcdList(data ?? []);
-  //   } catch (e) {
-  //     console.error("searchIcd error:", e);
-  //     setIcdList([]);
-  //   } finally {
-  //     setIcdLoading(false);
-  //   }
-  // };
   // Chỉ định / Service đã được chỉ định
   const [viewTab, setViewTab] = useState<"PICK" | "ASSIGNED">("PICK");
 

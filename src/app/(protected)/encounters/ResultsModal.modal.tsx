@@ -109,7 +109,6 @@ export default function ResultsModal(props: Props) {
           }
         } catch (e) {
           // Item chưa có result, bỏ qua
-          console.log(`No result for item ${item.item_id}`);
         }
       })
     );
@@ -134,7 +133,6 @@ export default function ResultsModal(props: Props) {
           await getQueueTicketConsultationByEncounterIdAndTicketType(
             props.encounterId
           );
-        console.log("data in modal: ", queueTicketEncounter);
         const serviceIdConsultation = queueTicketEncounter[0]?.service_ids[0];
         const items = normalizeList<ServiceRequestItemDto>(res);
         const items_filter = items.filter(

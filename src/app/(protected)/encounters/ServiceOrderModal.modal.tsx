@@ -15,6 +15,7 @@ import { ModalShell } from "@/components/modal/ModalShell";
 import { postCreateTicketForCLS } from "@/services/reception";
 import { CreateTicketPayload, TicketStatus } from "@/types";
 import { useSession } from "next-auth/react";
+import { notifySuccess } from "@/components/toast";
 
 type Category = {
   category_id: number;
@@ -127,7 +128,6 @@ export default function ServiceOrderModal(props: Props) {
           limit: 100,
           parent_id: null,
         } as any);
-        console.log("getAllServiceCategories: ", raw);
         setCategories(normalizeList<Category>(raw));
       } catch (e) {
         console.error("Load categories error:", e);
@@ -137,7 +137,7 @@ export default function ServiceOrderModal(props: Props) {
       }
     })();
   }, [props.open]);
-  // Get all service
+          
   useEffect(() => {
     if (!props.open) return;
 
@@ -259,7 +259,8 @@ export default function ServiceOrderModal(props: Props) {
 
         await postCreateServiceRequestsByDoctor(payloadServiceRequest);
       }
-
+      setSelected([]);
+      notifySuccess("Lưu chỉ định thành công");
       props.onCreated?.();
       props.onClose();
     } catch (err: any) {

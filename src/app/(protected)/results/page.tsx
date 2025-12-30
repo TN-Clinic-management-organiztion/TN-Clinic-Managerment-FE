@@ -201,7 +201,6 @@ export default function ResultsPage() {
           }
         } catch (e) {
           // Item chưa có result, bỏ qua
-          console.log(`No result for item ${item.item_id}`);
         }
       })
     );
