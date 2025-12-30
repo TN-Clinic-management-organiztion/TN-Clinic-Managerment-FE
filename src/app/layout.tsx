@@ -18,7 +18,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="mdl-js">
+    <html lang="vi" className="mdl-js scroll-smooth">
       <body className="font-montserrat antialiased min-h-screen w-full">
         <ToastProvider>{children}</ToastProvider>
       </body>
