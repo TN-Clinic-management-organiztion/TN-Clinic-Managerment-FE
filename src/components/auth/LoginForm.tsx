@@ -37,7 +37,7 @@ export default function LoginForm() {
       if (result?.error) {
         setError("Tên đăng nhập hoặc mật khẩu không chính xác");
       } else {
-        router.push("/");
+        router.push(`/login`);
       }
     } catch {
       setError("Có lỗi xảy ra, vui lòng thử lại");
