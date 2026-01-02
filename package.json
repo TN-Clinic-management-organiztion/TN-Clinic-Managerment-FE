@@ -12,6 +12,7 @@
     "@headlessui/react": "^2.2.9",
     "@heroui/react": "2.7.10",
     "@radix-ui/react-alert-dialog": "^1.1.15",
+    "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
     "@tinymce/tinymce-react": "^6.3.0",
     "axios": "^1.13.2",

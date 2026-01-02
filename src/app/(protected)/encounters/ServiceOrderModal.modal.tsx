@@ -249,7 +249,7 @@ export default function ServiceOrderModal(props: Props) {
 
         await postCreateTicketForCLS(payloadTicket);
 
-        // 2) create service_request (bắt buộc đi kèm)
+        // 2) create service_request
         const payloadServiceRequest: CreateServiceRequestDto = {
           encounter_id: props.encounterId,
           requesting_doctor_id: requestingDoctorId,
